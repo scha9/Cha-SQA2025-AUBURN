@@ -1,51 +1,49 @@
-import random
-import string
-import traceback
+import parser
 
-def random_string(length=10):
-    return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
+def test_function(func, input_value, function_name, file_writer):
+    """Helper function to call parser methods and record errors."""
+    try:
+        if isinstance(input_value, tuple):
+            func(*input_value)
+        else:
+            func(input_value)
+    except Exception as e:
+        error_message = f"Error in {function_name}: {e}\n"
+        print(error_message)
+        file_writer.write(error_message)
+        return True
+    return False
 
-def random_int():
-    return random.randint(-1000, 1000)
+def fuzzValues():
+    """Run fuzz testing on selected parser functions."""
+    with open('fuzzValues.txt', 'w') as file:
+        any_errors = False
 
-def random_float():
-    return random.uniform(-1000, 1000)
+        tests = [
+            (parser.checkIfWeirdYAML, "some_random_text", "checkIfWeirdYAML"),
+            (parser.keyMiner, {"metadata": {"name": "pod-name"}}, "keyMiner"),
+            (parser.getKeyRecursively, ({"spec": {"containers": [{"name": "app"}]}}, "name"), "getKeyRecursively"),
+            (parser.checkIfValidK8SYaml, "non_yaml_text", "checkIfValidK8SYaml"),
+            (parser.getValsFromKey, ({"env": [{"name": "API_KEY", "value": "12345"}]}, "value"), "getValsFromKey")
+        ]
 
-# Example functions to fuzz (replace with your actual KubeSec functions if you want)
-def func1(x):
-    return x.upper()
-
-def func2(x):
-    return int(x)
-
-def func3(x, y):
-    return x / y
-
-def func4(x):
-    return [i for i in x]
-
-def func5(x):
-    return {k: v for k, v in enumerate(x)}
-
-functions_to_fuzz = [
-    (func1, [random_string]),
-    (func2, [random_string]),
-    (func3, [random_float, random_float]),
-    (func4, [random_string]),
-    (func5, [random_string])
-]
-
-def main():
-    with open("bugs_found.txt", "w") as f:
-        for i in range(100):  # 100 fuzzing attempts
-            for func, generators in functions_to_fuzz:
+        for func, input_val, name in tests:
+            if isinstance(input_val, tuple):
                 try:
-                    inputs = [g() for g in generators]
-                    result = func(*inputs)
+                    func(*input_val)
                 except Exception as e:
-                    f.write(f"Error in {func.__name__} with inputs {inputs}\n")
-                    f.write(traceback.format_exc())
-                    f.write("\n---\n")
+                    error_message = f"Error in {name}: {e}\n"
+                    print(error_message)
+                    file.write(error_message)
+                    any_errors = True
+            else:
+                if test_function(func, input_val, name, file):
+                    any_errors = True
+
+        if not any_errors:
+            success_message = "All parser functions handled fuzz inputs without error.\n"
+            print(success_message)
+            file.write(success_message)
 
 if __name__ == "__main__":
-    main()
+    fuzzValues()
